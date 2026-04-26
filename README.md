@@ -66,6 +66,15 @@ That's it. No npm install, no build step.
 
 Plain HTML, CSS, vanilla JS. Zero dependencies. Hosted on GitHub Pages.
 
+## Issue triage with Claude
+
+This repo has a workflow at `.github/workflows/claude.yml` that lets you summon Claude on demand. To enable:
+
+1. Install the [Claude GitHub App](https://github.com/apps/claude) on this repo.
+2. Add an `ANTHROPIC_API_KEY` repository secret (Settings → Secrets and variables → Actions).
+
+Once enabled, mention `@claude` in an issue body, issue title, PR comment, or review comment, and Claude will investigate and push fixes as needed. Works from the GitHub mobile app too.
+
 ## License
 
 MIT
