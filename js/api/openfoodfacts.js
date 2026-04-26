@@ -1,21 +1,20 @@
 // Open Food Facts — packaged grocery items, no auth required
 //
 // Uses the v2 search API (faster + more stable than legacy /cgi/search.pl).
-// Prefers English product names so an English search doesn't return mostly
-// French/Spanish results.
+// Restricts results to English-language products via a server-side
+// languages_tags filter, and only emits items that have an explicit
+// product_name_en or generic_name_en — older multilingual fallbacks let
+// French/Spanish names through.
 (function () {
   'use strict';
 
   const SEARCH_URL = 'https://world.openfoodfacts.org/api/v2/search';
   const FIELDS = [
     'product_name_en',
-    'product_name',
     'generic_name_en',
-    'generic_name',
     'brands',
     'nutriments',
     'code',
-    'languages_tags',
   ].join(',');
 
   function fetchWithTimeout(url, opts = {}, ms = 12000) {
@@ -33,11 +32,6 @@
     }
     if (product.generic_name_en && product.generic_name_en.trim()) {
       return product.generic_name_en.trim();
-    }
-    // Only fall back to default name if the product is tagged English.
-    const tags = product.languages_tags || [];
-    if (tags.includes('en:english')) {
-      return (product.product_name || product.generic_name || '').trim() || null;
     }
     return null;
   }
@@ -75,9 +69,14 @@
   }
 
   async function search(query) {
+    // languages_tags=en:english filters server-side to products tagged as
+    // English-language; we over-fetch (page_size=20) since the tag filter and
+    // our English-name requirement both prune results.
     const url =
       `${SEARCH_URL}?search_terms=${encodeURIComponent(query)}` +
-      `&page_size=8&lc=en&fields=${encodeURIComponent(FIELDS)}`;
+      `&page_size=20&lc=en` +
+      `&languages_tags=${encodeURIComponent('en:english')}` +
+      `&fields=${encodeURIComponent(FIELDS)}`;
     try {
       const res = await fetchWithTimeout(url, {}, 15000);
       if (!res.ok) {
@@ -85,7 +84,7 @@
       }
       const data = await res.json();
       const products = data.products || [];
-      const items = products.map(normalize).filter(Boolean);
+      const items = products.map(normalize).filter(Boolean).slice(0, 8);
       return { source: 'openfoodfacts', items };
     } catch (err) {
       return { source: 'openfoodfacts', error: `Open Food Facts: ${err.message}` };
