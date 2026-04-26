@@ -1,0 +1,48 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+
+# IDEs / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Logs / env
+*.log
+.env
+.env.local
+.env.*.local
+
+# Build / cache
+dist/
+build/
+.cache/
+.parcel-cache/
+.tmp/
+
+# OS / misc
+Thumbs.db
+ehthumbs.db
+Desktop.ini
