@@ -1,10 +1,10 @@
 // Open Food Facts — packaged grocery items, no auth required
 //
-// Uses the v2 search API (faster + more stable than legacy /cgi/search.pl).
-// Restricts results to English-language products via a server-side
-// languages_tags filter, and only emits items that have an explicit
-// product_name_en or generic_name_en — older multilingual fallbacks let
-// French/Spanish names through.
+// Uses the v2 search API. OFF's data quality is uneven: many products store
+// French or Spanish text in their `product_name_en` field, and the server-side
+// language filter doesn't reliably exclude them. So we filter twice on the
+// client: (1) require `en:english` in `languages_tags`, (2) reject names that
+// match unambiguous French/Spanish stop-words or food words.
 (function () {
   'use strict';
 
@@ -15,7 +15,26 @@
     'brands',
     'nutriments',
     'code',
+    'languages_tags',
   ].join(',');
+
+  // Whole-word matches only. These are unambiguous in a food-product name —
+  // English never uses "blanc/poulet/sans/pollo/pechuga" etc. as ordinary
+  // vocabulary, even when borrowing French cuisine terms.
+  const NON_ENGLISH_RE = new RegExp(
+    '\\b(' + [
+      // French
+      'blanc', 'noir', 'rouge', 'jaune',
+      'sans', 'avec', 'pour', 'aux', 'rôti', 'tranches?', 'broche',
+      'poulet', 'boeuf', 'bœuf', 'porc', 'agneau', 'jambon', 'saumon',
+      'fromage', 'beurre', 'lait',
+      // Spanish
+      'pollo', 'pescado', 'cerdo', 'pechuga', 'tiras', 'filete', 'rebanadas?',
+      'queso', 'leche', 'mantequilla', 'manzana', 'fresa',
+      'del', 'los', 'las', 'sin', 'con',
+    ].join('|') + ')\\b',
+    'i'
+  );
 
   function fetchWithTimeout(url, opts = {}, ms = 12000) {
     return Promise.race([
@@ -27,11 +46,14 @@
   }
 
   function pickEnglishName(product) {
-    if (product.product_name_en && product.product_name_en.trim()) {
-      return product.product_name_en.trim();
-    }
-    if (product.generic_name_en && product.generic_name_en.trim()) {
-      return product.generic_name_en.trim();
+    const tags = product.languages_tags || [];
+    if (!tags.includes('en:english')) return null;
+    const candidates = [product.product_name_en, product.generic_name_en];
+    for (const c of candidates) {
+      const trimmed = (c || '').trim();
+      if (!trimmed) continue;
+      if (NON_ENGLISH_RE.test(trimmed)) continue;
+      return trimmed;
     }
     return null;
   }
