@@ -1,8 +1,22 @@
 // Open Food Facts — packaged grocery items, no auth required
+//
+// Uses the v2 search API (faster + more stable than legacy /cgi/search.pl).
+// Prefers English product names so an English search doesn't return mostly
+// French/Spanish results.
 (function () {
   'use strict';
 
-  const SEARCH_URL = 'https://world.openfoodfacts.org/cgi/search.pl';
+  const SEARCH_URL = 'https://world.openfoodfacts.org/api/v2/search';
+  const FIELDS = [
+    'product_name_en',
+    'product_name',
+    'generic_name_en',
+    'generic_name',
+    'brands',
+    'nutriments',
+    'code',
+    'languages_tags',
+  ].join(',');
 
   function fetchWithTimeout(url, opts = {}, ms = 12000) {
     return Promise.race([
@@ -13,24 +27,38 @@
     ]);
   }
 
+  function pickEnglishName(product) {
+    if (product.product_name_en && product.product_name_en.trim()) {
+      return product.product_name_en.trim();
+    }
+    if (product.generic_name_en && product.generic_name_en.trim()) {
+      return product.generic_name_en.trim();
+    }
+    // Only fall back to default name if the product is tagged English.
+    const tags = product.languages_tags || [];
+    if (tags.includes('en:english')) {
+      return (product.product_name || product.generic_name || '').trim() || null;
+    }
+    return null;
+  }
+
   function detectConfidence(product) {
     if (product.brands) return 'high';
-    if (product.product_name) return 'medium';
+    if (product.product_name_en) return 'medium';
     return 'low';
   }
 
   function normalize(product) {
+    const name = pickEnglishName(product);
+    if (!name) return null;
+
     const nutr = product.nutriments || {};
-    // Energy in kcal per 100g; fall back to converting from kJ if needed.
     let cal100 = nutr['energy-kcal_100g'];
     if (cal100 == null && nutr['energy_100g'] != null) {
-      // energy_100g is in kJ when energy-kcal not present
+      // energy_100g is in kJ when energy-kcal not provided
       cal100 = nutr['energy_100g'] / 4.184;
     }
     if (cal100 == null) return null;
-
-    const name = product.product_name || product.generic_name;
-    if (!name) return null;
 
     return {
       source: 'openfoodfacts',
@@ -49,10 +77,9 @@
   async function search(query) {
     const url =
       `${SEARCH_URL}?search_terms=${encodeURIComponent(query)}` +
-      `&search_simple=1&action=process&json=1&page_size=8` +
-      `&fields=product_name,generic_name,brands,nutriments,code`;
+      `&page_size=8&lc=en&fields=${encodeURIComponent(FIELDS)}`;
     try {
-      const res = await fetchWithTimeout(url);
+      const res = await fetchWithTimeout(url, {}, 15000);
       if (!res.ok) {
         return { source: 'openfoodfacts', error: `Open Food Facts HTTP ${res.status}` };
       }
@@ -68,9 +95,9 @@
   async function ping() {
     try {
       const res = await fetchWithTimeout(
-        `${SEARCH_URL}?search_terms=apple&search_simple=1&action=process&json=1&page_size=1`,
+        `${SEARCH_URL}?search_terms=apple&page_size=1&fields=code&lc=en`,
         {},
-        8000
+        15000
       );
       if (res.ok) return { ok: true, message: 'connected' };
       return { ok: false, message: `HTTP ${res.status}` };
