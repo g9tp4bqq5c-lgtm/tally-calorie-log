@@ -91,13 +91,13 @@
   }
 
   async function search(query) {
-    // languages_tags=en:english filters server-side to products tagged as
-    // English-language; we over-fetch (page_size=20) since the tag filter and
-    // our English-name requirement both prune results.
+    // OFF v2 doesn't reliably honor a `languages_tags` query filter — passing
+    // it caused fetches to fail outright in Safari ("load failed"). Rely on
+    // client-side filtering in pickEnglishName instead, and over-fetch
+    // (page_size=20) so the language pruning doesn't shrink the result list.
     const url =
       `${SEARCH_URL}?search_terms=${encodeURIComponent(query)}` +
       `&page_size=20&lc=en` +
-      `&languages_tags=${encodeURIComponent('en:english')}` +
       `&fields=${encodeURIComponent(FIELDS)}`;
     try {
       const res = await fetchWithTimeout(url, {}, 15000);

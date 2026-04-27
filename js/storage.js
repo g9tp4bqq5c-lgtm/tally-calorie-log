@@ -5,7 +5,7 @@
 
   const ENTRIES_KEY = 'tally.entries.v1';
   const SETTINGS_KEY = 'tally.settings.v1';
-  const CACHE_KEY = 'tally.cache.v3';
+  const CACHE_KEY = 'tally.cache.v4';
   const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
   const DEFAULT_SETTINGS = {
